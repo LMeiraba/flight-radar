@@ -1,0 +1,15 @@
+html,
+body {
+    height: 100%;
+    /* Make HTML and BODY elements fill the whole viewport */
+    margin: 0;
+    /* Remove the default 8px margin from the body */
+    padding: 0;
+    /* Remove any default padding */
+}
+
+#map {
+    height: 100%;
+    /* Make the map div fill 100% of its parent (the body) */
+    width: 100%;
+}

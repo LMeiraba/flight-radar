@@ -3,7 +3,7 @@
 #include <string.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-
+#include <sys/stat.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 8192
@@ -14,86 +14,136 @@ struct HTTP_Header {
 };
 
 struct HTTP_Request {
-    char *method;
-    char *path;
-    char *version;
+    char *method;     
+    char *path;        
+    char *query;       
+    char *version;     
     struct HTTP_Header headers[MAX_HEADERS];
     int header_count;
     char *body;
 };
-// --- PARSING FUNCTION ---
-// NOTE: This modifies the 'raw_buffer' in place for efficiency!
 void parse_request(char *raw_buffer, struct HTTP_Request *req) {
-    // Initialize struct
     memset(req, 0, sizeof(struct HTTP_Request));
 
-    // 1. Separate the Body from the Headers
-    // Look for the "Double Newline" (\r\n\r\n)
+    // 1. Separate Body from Headers
     char *body_start = strstr(raw_buffer, "\r\n\r\n");
-    
     if (body_start) {
-        req->body = body_start + 4; // Skip the 4 characters of \r\n\r\n
-        *body_start = '\0';         // Cut the string here so headers stop reading
-    } else {
-        req->body = NULL; // No body found
+        req->body = body_start + 4;
+        *body_start = '\0';
     }
 
-    // 2. Parse the Request Line (First Line)
-    // Format: METHOD PATH VERSION
-    char *line_ctx; // Context for strtok_r (safe tokenizing) or just use strtok
-    
-    // Get first line
-    char *line = strtok(raw_buffer, "\r\n"); 
+    // 2. Parse First Line
+    char *line = strtok(raw_buffer, "\r\n");
     if (line) {
-        // We use sscanf to extract the 3 parts easily
-        // We need temporary pointers because sscanf needs space to write, 
-        // but here we just want to point into the existing string.
-        // Actually, simple space splitting is safer here:
-        
         req->method = strtok(line, " ");
-        req->path = strtok(NULL, " ");
+        char *full_path = strtok(NULL, " "); // This might contain '?'
         req->version = strtok(NULL, " ");
+
+        // --- QUERY PARSING LOGIC ---
+        if (full_path) {
+            char *question_mark = strchr(full_path, '?');
+            if (question_mark) {
+                *question_mark = '\0'; // Split the string here
+                req->path = full_path; // The part before '?'
+                req->query = question_mark + 1; // The part after '?'
+            } else {
+                req->path = full_path;
+                req->query = NULL;
+            }
+        }
     }
 
     // 3. Parse Headers
-    // Keep getting lines until NULL
-    while (line = strtok(NULL, "\r\n")) {
+    while ((line = strtok(NULL, "\r\n")) != NULL) {
         if (req->header_count >= MAX_HEADERS) break;
-
-        // Find the colon separator
         char *colon = strchr(line, ':');
         if (colon) {
-            *colon = '\0'; // Split key and value
-            
+            *colon = '\0';
             req->headers[req->header_count].key = line;
-            
-            // The value starts after the colon. 
-            // We typically want to skip the space after the colon (e.g. "Host: localhost")
             char *val = colon + 1;
-            while (*val == ' ') val++; // Skip leading spaces
-            
+            while (*val == ' ') val++;
             req->headers[req->header_count].value = val;
             req->header_count++;
         }
     }
 }
 
-// --- HELPER TO PRINT REQUEST ---
 void print_request_details(struct HTTP_Request *req) {
-    printf("--- PARSED REQUEST ---\n");
-    printf("Method:  %s\n", req->method ? req->method : "NULL");
-    printf("Path:    %s\n", req->path ? req->path : "NULL");
-    printf("Version: %s\n", req->version ? req->version : "NULL");
-    
-    printf("\n[Headers: %d]\n", req->header_count);
-    for (int i = 0; i < req->header_count; i++) {
-        printf("  %s = %s\n", req->headers[i].key, req->headers[i].value);
+    printf("\n--- REQUEST RECEIVED ---\n");
+    printf("Method: %s\n", req->method);
+    printf("Path:   %s\n", req->path);
+    printf("Query:  %s\n", req->query ? req->query : "(none)"); // Print Query
+    printf("Headers: %d\n", req->header_count);
+    printf("------------------------\n");
+}
+
+const char *get_mime_type(const char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if (!dot) return "text/plain";
+    if (strcmp(dot, ".html") == 0) return "text/html";
+    if (strcmp(dot, ".css")  == 0) return "text/css";
+    if (strcmp(dot, ".js")   == 0) return "application/javascript";
+    if (strcmp(dot, ".png")  == 0) return "image/png";
+    if (strcmp(dot, ".jpg")  == 0) return "image/jpeg";
+    if (strcmp(dot, ".gif")  == 0) return "image/gif";
+    if (strcmp(dot, ".pdf")  == 0) return "application/pdf";
+    return "text/plain";
+}
+
+int file_exists(const char *filename) {
+    struct stat buffer;
+    return (stat(filename, &buffer) == 0);
+}
+
+void get_final_path(char *request_path, char *final_path) {
+    if (strcmp(request_path, "/") == 0) {
+        strcpy(final_path, "index.html");
+        return;
     }
-    
-    if (req->body) {
-        printf("\n[Body]\n%s\n", req->body);
+    char safe_path[256];
+    strcpy(safe_path, request_path + 1);
+
+    if (file_exists(safe_path)) {
+        strcpy(final_path, safe_path);
+        return;
     }
-    printf("----------------------\n");
+    char html_path[256];
+    sprintf(html_path, "%s.html", safe_path);
+    if (file_exists(html_path)) {
+        strcpy(final_path, html_path);
+        return;
+    }
+    final_path[0] = '\0';
+}
+
+void send_file(SOCKET client_socket, const char *path) {
+    FILE *file = fopen(path, "rb");
+    if (!file) return;
+
+    fseek(file, 0, SEEK_END);
+    long fsize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char header[BUFFER_SIZE];
+    snprintf(header, sizeof(header),
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %ld\r\n"
+        "\r\n", get_mime_type(path), fsize);
+    
+    send(client_socket, header, (int)strlen(header), 0);
+
+    char file_buffer[BUFFER_SIZE];
+    size_t bytes_read;
+    while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), file)) > 0) {
+        send(client_socket, file_buffer, (int)bytes_read, 0);
+    }
+    fclose(file);
+}
+
+void send_404(SOCKET client_socket) {
+    char *resp = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404 Not Found";
+    send(client_socket, resp, (int)strlen(resp), 0);
 }
 int main() {
     WSADATA wsa;
@@ -148,34 +198,82 @@ int main() {
             buffer[valread] = '\0'; 
             struct HTTP_Request req;
             parse_request(buffer, &req);
-            printf("Client requested: %s\n", req.path);
-            print_request_details(&req);
+            print_request_details(&req); 
+            if (req.path) {
+                // Check if the path contains a file extension (a dot)
+                int is_static_file = (strchr(req.path, '.') != NULL);
+                char final_path[256];
+
+                if (is_static_file) {
+                    // This is a static file request (e.g., /image.png or /css/style.css)
+                    printf(">> STATIC FILE request detected.\n");
+                    get_final_path(req.path, final_path);
+                    
+                    if (strlen(final_path) > 0) {
+                        send_file(new_socket, final_path);
+                    } else {
+                        send_404(new_socket);
+                    }
+                } else if (strcmp(req.path, "/") == 0) {
+                    // Handle root path
+                    strcpy(final_path, "index.html");
+                    if (file_exists(final_path)) {
+                        send_file(new_socket, final_path);
+                    } else {
+                        send_404(new_socket);
+                    }
+                }
+                // --- MANIPULATION POINT: Dynamic Routing ---
+                // else if (strcmp(req.path, "/api/data") == 0) {
+                //     // Example API route handler (no file serving)
+                //     char *json_response = 
+                //         "HTTP/1.1 200 OK\r\n"
+                //         "Content-Type: application/json\r\n"
+                //         "Content-Length: 26\r\n\r\n"
+                //         "{\"status\":\"API Online\"}";
+                //     send(new_socket, json_response, strlen(json_response), 0);
+                //     printf(">> API Route /api/data served.\n");
+                // }
+                // --- END Dynamic Routing ---
+                else {
+                    // No extension, no root, and no dynamic route matched. Attempt clean HTML file.
+                    get_final_path(req.path, final_path);
+
+                    if (strlen(final_path) > 0) {
+                        // Successfully found file.html
+                        send_file(new_socket, final_path);
+                    } else {
+                        // Nothing found
+                        send_404(new_socket);
+                    }
+                }
+            }
         }
 
         // 7. Send Response
-        const char *response_body = 
-            "<!DOCTYPE html>"
-            "<html>"
-            "<head><title>Windows Server</title></head>"
-            "<body>"
-            "<h1>Hello from Windows!</h1>"
-            "<p>This server is running purely on Winsock.</p>"
-            "</body>"
-            "</html>";
+        // const char *response_body = 
+        //     "<!DOCTYPE html>"
+        //     "<html>"
+        //     "<head><title>Windows Server</title></head>"
+        //     "<body>"
+        //     "<h1>Hello from Windows!</h1>"
+        //     "<p>This server is running purely on Winsock.</p>"
+        //     "</body>"
+        //     "</html>";
 
-        char response_header[BUFFER_SIZE];
-        snprintf(response_header, BUFFER_SIZE,
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n"
-            "Content-Length: %llu\r\n"
-            "\r\n", strlen(response_body));
+        // char response_header[BUFFER_SIZE];
+        // snprintf(response_header, BUFFER_SIZE,
+        //     "HTTP/1.1 200 OK\r\n"
+        //     "Content-Type: text/html\r\n"
+        //     "Content-Length: %llu\r\n"
+        //     "\r\n", strlen(response_body));
 
-        // Send headers
-        send(new_socket, response_header, (int)strlen(response_header), 0);
-        // Send body
-        send(new_socket, response_body, (int)strlen(response_body), 0);
+        // // Send headers
+        // send(new_socket, response_header, (int)strlen(response_header), 0);
+        // // Send body
+        // send(new_socket, response_body, (int)strlen(response_body), 0);
 
-        printf("Response sent.\n");
+        // printf("Response sent.\n");
 
         // 8. Close and Cleanup
         closesocket(new_socket); 
