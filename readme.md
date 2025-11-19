@@ -1,3 +1,3 @@
-# Shop Inventory Management System
+# Webserver + Flight Radar
 
-This is a simple app made in c to manage the inventory of a shop.
+This is a simple project that intergrates web hosting using C and webpage using html
