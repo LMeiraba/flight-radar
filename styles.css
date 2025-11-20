@@ -13,3 +13,19 @@ body {
     /* Make the map div fill 100% of its parent (the body) */
     width: 100%;
 }
+.plane-icon {
+    /* Set size and appearance for the ✈️ symbol */
+    font-size: 20px; 
+    line-height: 20px;
+    text-align: center;
+    width: 20px;
+    height: 20px;
+}
+
+/* IMPORTANT: Ensures the rotation is centered on the icon */
+.plane-icon div {
+    /* Set the rotation origin to the center of the element */
+    transform-origin: 50% 50%; 
+    /* Ensures smooth visual updates during position refresh */
+    transition: transform 0.5s ease-out; 
+}

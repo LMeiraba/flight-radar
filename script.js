@@ -1,11 +1,29 @@
 var map = L.map('map').setView([12.940965, 77.566578], 10);//college
 
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(onLocationFound, null, {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0
+});
+} else {
+    alert("Geolocation is not supported by this browser.");
+}
+function onLocationFound(position) {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const latlng = L.latLng(lat, lng);
+    L.marker(latlng).addTo(map)
+        .bindPopup("You are here.")
+    map.setView(latlng, 10); 
+}
+
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 L.control.scale().addTo(map);
-// L.control.layers(baseMaps, overlays).addTo(map);
+
 var myIcon = L.icon({
     iconUrl: 'https://files.catbox.moe/6ns049.png',
     iconSize: [30, 30],
@@ -16,17 +34,15 @@ var myIcon = L.icon({
 // L.marker([12.940965, 77.566578], { icon: myIcon }).addTo(map)
 //     .bindPopup('starting point.')
 //     .openPopup();
-// Replace with the actual API endpoint for all states
-const OPEN_SKY_API_ENDPOINT = 'https://opensky-network.org/api/states/all';
+const base_url = 'https://opensky-network.org/api';
 
-// A LayerGroup to hold all aircraft markers, making it easy to clear/update
 const aircraftLayer = L.layerGroup().addTo(map);
 
 function fetchAndLoadOpenSkyData() {
-    // 1. Clear previous markers before fetching new data
     aircraftLayer.clearLayers();
-
-    fetch(OPEN_SKY_API_ENDPOINT)
+    let bounds = getBounds();
+    // console.log(map.getBounds().getSouth(), map.getBounds().getNorth(), map.getBounds().getWest(), map.getBounds().getEast());
+    fetch(base_url + `/states/all?lamin=${bounds.lamin}&lomin=${bounds.lomin}&lamax=${bounds.lamax}&lomax=${bounds.lomax}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -53,16 +69,23 @@ function processOpenSkyStates(statesArray) {
         const latitude = aircraftState[6];  // Index 6
         const icao24 = aircraftState[0];    // ICAO 24-bit address (unique ID)
         const callsign = aircraftState[1];  // Flight number (e.g., 'AAL123')
-        
-        // **CRITICAL CHECK**: Only proceed if coordinates are available
-        // OpenSky includes non-localized aircraft, which have null lat/lng.
+        const heading = aircraftState[10];
         if (latitude !== null && longitude !== null) {
             
-            const marker = L.marker([latitude, longitude], {
-                // Optional: Use a custom plane icon instead of default pin
-                icon: myIcon
+            // const marker = L.marker([latitude, longitude], {
+            //     // Optional: Use a custom plane icon instead of default pin
+            //     icon: myIcon
+            // });
+            const rotatedIcon = L.divIcon({
+                className: 'plane-icon',
+                html: `<div style="transform: rotate(${heading}deg)"><img src="https://files.catbox.moe/6ns049.png" style="width: 30px; height: 30px;"></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15] // Anchors the icon center to the coordinates
             });
             
+            const marker = L.marker([latitude, longitude], {
+                icon: rotatedIcon
+            });
             // Build the popup content
             const popupContent = `
                 <strong>Callsign:</strong> ${callsign ? callsign.trim() : 'N/A'}<br>
@@ -78,42 +101,18 @@ function processOpenSkyStates(statesArray) {
     });
 }
 
-// 3. Initial Load and Refresh (Set up a timer for real-time updates)
-fetchAndLoadOpenSkyData(); // Load data immediately
 
-// Refresh the data every 30 seconds (OpenSky data updates every 5-10s)
-// Use a higher interval to be polite and avoid hitting rate limits.
+fetchAndLoadOpenSkyData(); 
+// const debouncedFetch = debounce(fetchAndLoadOpenSkyData, 750);
+map.on('moveend', fetchAndLoadOpenSkyData);
 // setInterval(fetchAndLoadOpenSkyData, 30000); 
 
-// Note: You must initialize your map object (var map = L.map('map')...) 
-// and tile layers before this script runs.
-
-
-// function loadDataPoints(dataArray) {
-//     // Create a LayerGroup to hold all the markers (for easy management)
-//     const pointsLayer = L.layerGroup();
-
-//     dataArray.forEach(point => {
-//         // Ensure coordinates are present
-//         if (point.lat && point.lng) {
-//             // Create a marker using the latitude and longitude
-//             const marker = L.marker([point.lat, point.lng]);
-
-//             // If the data includes a title or name, bind a popup
-//             if (point.title) {
-//                 marker.bindPopup(point.title);
-//             }
-
-//             // Add the marker to the LayerGroup
-//             pointsLayer.addLayer(marker);
-//         }
-//     });
-
-//     // Add the entire LayerGroup to the map in one operation
-//     pointsLayer.addTo(map);
-
-//     // Optional: Zoom the map to fit all the loaded points
-//     if (pointsLayer.getLayers().length > 0) {
-//         map.fitBounds(pointsLayer.getBounds());
-//     }
-// }
+function getBounds(){
+    let bounds = map.getBounds()
+    return {
+        lamin: bounds.getSouth(), 
+        lomin: bounds.getWest(),
+        lamax: bounds.getNorth(),
+        lomax: bounds.getEast()
+    };
+}
