@@ -4,7 +4,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <sys/stat.h>
-
 #define PORT 8080
 #define BUFFER_SIZE 8192
 #define MAX_HEADERS 50
@@ -250,32 +249,7 @@ int main() {
             }
         }
 
-        // 7. Send Response
-        // const char *response_body = 
-        //     "<!DOCTYPE html>"
-        //     "<html>"
-        //     "<head><title>Windows Server</title></head>"
-        //     "<body>"
-        //     "<h1>Hello from Windows!</h1>"
-        //     "<p>This server is running purely on Winsock.</p>"
-        //     "</body>"
-        //     "</html>";
-
-        // char response_header[BUFFER_SIZE];
-        // snprintf(response_header, BUFFER_SIZE,
-        //     "HTTP/1.1 200 OK\r\n"
-        //     "Content-Type: text/html\r\n"
-        //     "Content-Length: %llu\r\n"
-        //     "\r\n", strlen(response_body));
-
-        // // Send headers
-        // send(new_socket, response_header, (int)strlen(response_header), 0);
-        // // Send body
-        // send(new_socket, response_body, (int)strlen(response_body), 0);
-
-        // printf("Response sent.\n");
-
-        // 8. Close and Cleanup
+        
         closesocket(new_socket); 
     }
 

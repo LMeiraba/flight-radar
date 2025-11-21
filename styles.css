@@ -1,20 +1,15 @@
 html,
 body {
     height: 100%;
-    /* Make HTML and BODY elements fill the whole viewport */
     margin: 0;
-    /* Remove the default 8px margin from the body */
     padding: 0;
-    /* Remove any default padding */
 }
 
 #map {
     height: 100%;
-    /* Make the map div fill 100% of its parent (the body) */
     width: 100%;
 }
 .plane-icon {
-    /* Set size and appearance for the ✈️ symbol */
     font-size: 20px; 
     line-height: 20px;
     text-align: center;
@@ -22,10 +17,63 @@ body {
     height: 20px;
 }
 
-/* IMPORTANT: Ensures the rotation is centered on the icon */
 .plane-icon div {
-    /* Set the rotation origin to the center of the element */
-    transform-origin: 50% 50%; 
-    /* Ensures smooth visual updates during position refresh */
+    transform-origin: 50% 50%;
     transition: transform 0.5s ease-out; 
+}
+
+.aircraft-info-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 320px; /* Minimum width to fit content */
+    font-family: sans-serif;
+    padding: 10px;
+    line-height: 1.4;
+}
+
+.image-container {
+    width: 80%;
+    height: 120px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+}
+.image-container img {
+    max-width: 100%; 
+    max-height: 100%;
+    width: auto;     
+    height: auto;    
+    object-fit: contain; 
+}
+.data-row {
+    display: flex;
+    width: 100%;
+}
+
+.info-column-info, .info-column-stats {
+    flex: 1;        /* Forces them to be equal size */
+    width: 50%;     /* Basis is 50% */
+    font-size: 0.9em;
+    box-sizing: border-box;
+    word-wrap: break-word; /* Wraps long text if data changes */
+}
+.info-column-info {
+    padding-right: 10px;
+    border-right: 1px solid #ccc;
+}
+
+/* Right Column Padding */
+.info-column-stats {
+    padding-left: 10px;
+}
+.info-label {
+    font-weight: bold;
+    color: #333;
+    display: inline-block;
+    min-width: 60px;
 }
