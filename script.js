@@ -123,7 +123,7 @@ async function onPopupOpen(e) {
     const marker = e.target
     const data = marker.options.data;
 
-    let metadata = await fetch(metadata_api + `/${data.icao24}`).then(async (r) => { return await r.json() });
+    let metadata = await fetch(`https://api.allorigins.win/raw?url=${metadata_api}/${data.icao24}`).then(async (r) => { return await r.json() });
     console.log('metadata api data:', metadata)
     data.registration = metadata.registration || 'N/A'
     data.typecode = metadata.typecode || 'N/A'
