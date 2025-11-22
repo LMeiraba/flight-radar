@@ -127,6 +127,7 @@ async function onPopupOpen(e) {
     data.registration = metadata.registration || 'N/A'
     data.typecode = metadata.typecode || 'N/A'
     data.class = metadata.class || 'N/A'
+    data.manufacturer = metadata.manufacturer || 'N/A'
     // let img_data = await fetch(img_api + `/${data.icao24}?reg=${data.registration}&icaoType=${data.class}`).then(async (r) => { return await r.json() });
 
     data.img = metadata.img || 'https://www.shutterstock.com/shutterstock/videos/1075581560/thumb/10.jpg?ip=x480';
@@ -162,6 +163,7 @@ function getPopupHTMLTemplate(data) {
             <div>Type: <span id="popup-type">${data.typecode || 'Loading...'}</span></div>
             <div>Name: <span id="popup-type-name">${data.name || 'Loading...'}</span></div>
             <div>Class: <span id="popup-class">${data.class || 'Loading...'}</span></div>
+            <div>Manufacturer: <span id="popup-manufacturer">${data.manufacturer || 'Loading...'}</span></div>
         </div>
         
         <div class="info-column-stats">
