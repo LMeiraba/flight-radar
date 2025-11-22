@@ -24,8 +24,7 @@ var myIcon = L.icon({
 });
 
 const base_url = 'https://opensky-network.org/api';
-const metadata_api = 'https://opensky-network.org/api/metadata/aircraft/icao' // /icao24
-const img_api = 'https://api.planespotters.net/pub/photos//hex' // /7C1471?reg=VH-EBN&icaoType=A332
+const metadata_api = 'https://api.meiraba.me/flight_metadata?icao=' // /icao24
 
 const aircraftLayer = L.layerGroup().addTo(map);
 let isPopupOpen = false;
@@ -123,15 +122,15 @@ async function onPopupOpen(e) {
     const marker = e.target
     const data = marker.options.data;
 
-    let metadata = await fetch(`https://api.allorigins.win/raw?url=${metadata_api}/${data.icao24}`).then(async (r) => { return await r.json() });
+    let metadata = await fetch(`https://api.meiraba.me/flight_metadata?icao=${data.icao24}`).then(async (r) => { return await r.json() });
     console.log('metadata api data:', metadata)
     data.registration = metadata.registration || 'N/A'
     data.typecode = metadata.typecode || 'N/A'
-    data.class = metadata.icaoAircraftClass || 'N/A'
-    let img_data = await fetch(img_api + `/${data.icao24}?reg=${data.registration}&icaoType=${data.class}`).then(async (r) => { return await r.json() });
+    data.class = metadata.class || 'N/A'
+    // let img_data = await fetch(img_api + `/${data.icao24}?reg=${data.registration}&icaoType=${data.class}`).then(async (r) => { return await r.json() });
 
-    data.img = img_data.photos?.[0]?.thumbnail?.src || 'https://www.shutterstock.com/shutterstock/videos/1075581560/thumb/10.jpg?ip=x480';
-    data.name = getFlightName(data.icao24) || 'N/A'
+    data.img = metadata.img || 'https://www.shutterstock.com/shutterstock/videos/1075581560/thumb/10.jpg?ip=x480';
+    data.name = metadata.name || 'N/A'
     console.log('popup data:', data)
     marker.setPopupContent(getPopupHTMLTemplate(data));
 }
