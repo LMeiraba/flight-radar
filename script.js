@@ -28,6 +28,14 @@ const metadata_api = 'https://api.meiraba.me/flight_metadata?icao=' // /icao24
 
 const aircraftLayer = L.layerGroup().addTo(map);
 let isPopupOpen = false;
+let all_flights = []
+loadAllFlights()
+function loadAllFlights() {
+    fetch(base_url + '/states/all').then(async (r) => {
+        let data = await r.json();
+        all_flights = data.states
+    })
+}
 function fetchAndLoadOpenSkyData() {
     let bounds = getBounds();
     if (isPopupOpen) {
@@ -53,10 +61,10 @@ function fetchAndLoadOpenSkyData() {
             console.error("Could not fetch OpenSky data:", error);
         });
 }
+let source = ["ADS-B", "ASTERIX", "MLAT", "FLARM"]
 
 function processOpenSkyStates(statesArray) {
     aircraftLayer.clearLayers();
-    let source = ["ADS-B", "ASTERIX", "MLAT", "FLARM"]
     statesArray.forEach(aircraftState => {
         let data = {
             icao24: aircraftState[0],
@@ -106,8 +114,8 @@ function processOpenSkyStates(statesArray) {
 
 fetchAndLoadOpenSkyData();
 map.on('moveend', fetchAndLoadOpenSkyData);
-setInterval(fetchAndLoadOpenSkyData, 10000); 
-
+setInterval(fetchAndLoadOpenSkyData, 10000);
+setInterval(loadAllFlights, 120000);
 function getBounds() {
     let bounds = map.getBounds()
     return {
@@ -178,13 +186,107 @@ function getPopupHTMLTemplate(data) {
 </div>
     `;
 }
-function getFlightName(icao24) {
-    return null
-    //check the first 3 char
-    //then 2 char
-    //then 1 char
-    //if no maths use https://map.opensky-network.org/db-3.14.1668/icao_aircraft_types2.js
-}
 function onPopupClose(e) {
     isPopupOpen = false;
-}   
+}
+
+
+// 1. Get References
+const searchInput = document.getElementById('searchInput');
+const resultsContainer = document.getElementById('searchResults');
+
+function handleSearch(text) {
+    let query = text.toUpperCase().trim();
+    let list = all_flights.length ? all_flights : [];
+    let found = list.filter(f => f[1] && f[1].includes(query));
+    renderResults(found.slice(0, 10).map(f => {
+        return {
+            icao24: f[0],
+            callsign: f[1],
+            origin_country: f[2]
+        }
+    }));
+}
+
+
+// renderResults(['one', 'two']);
+function renderResults(matches) {
+    resultsContainer.innerHTML = ''; // Clear old results
+
+    if (matches.length === 0) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    matches.forEach(plane => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+
+        // Layout: Callsign on left, Hex on right
+        div.innerHTML = `
+            <strong>${plane.callsign}</strong>
+            <span>${plane.icao24}</span>
+        `;
+
+        // 5. Click Event: Fly to Plane
+        div.onclick = async () => {
+            // Zoom to the marker
+            isPopupOpen = true
+            let flight = await fetch(base_url + `/states/all?icao24=${plane.icao24}`).then(async (r) => { return await r.json() })
+            aircraftLayer.clearLayers();
+            flight = flight.states.map(f =>{
+                return {
+                icao24: f[0],
+                callsign: f[1],
+                origin_country: f[2],
+                latitude: f[6],
+                longitude: f[5],
+                altitude: f[7],
+                velocity: f[9],
+                heading: f[10],
+                vertical_rate: f[11],
+                position_source: source[f[16]]
+            }
+            })[0]
+            console.log(JSON.stringify(flight))
+            map.flyTo([flight.latitude, flight.longitude], 10);
+
+            const rotatedIcon = L.divIcon({
+                className: 'plane-icon',
+                html: `<div style="transform: rotate(${flight.heading}deg)"><img src="https://files.catbox.moe/zf20pw.png" style="width: 30px; height: 30px;"></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15] // Anchors the icon center to the coordinates
+            });
+
+            const marker = L.marker([flight.latitude, flight.longitude], {
+                icon: rotatedIcon,
+                data: flight
+            });
+            // Build the popup content
+            const popupContent = getPopupHTMLTemplate(flight);
+            // `
+            //     <strong>Callsign:</strong> ${data.callsign ? data.callsign.trim() : 'N/A'}<br>
+            //     <strong>ICAO24:</strong> ${data.icao24}<br>
+            //     <strong>Lat/Lng:</strong> ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}
+            // `;
+            marker.bindPopup(popupContent);
+            marker.on('popupopen', onPopupOpen);
+            marker.on('popupclose', onPopupClose);
+            isPopupOpen = true
+            aircraftLayer.addLayer(marker);
+            marker.openPopup();
+            searchInput.value = '';
+            resultsContainer.style.display = 'none';
+        };
+
+        resultsContainer.appendChild(div);
+    });
+
+    resultsContainer.style.display = 'block'; // Show the list
+}
+
+// Helper to clear search manually
+function clearSearch() {
+    searchInput.value = '';
+    resultsContainer.style.display = 'none';
+}

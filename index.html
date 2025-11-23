@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Flight Radar</title>
     <meta charset="utf-8" />
@@ -7,10 +8,27 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div id="map"></div>
+    <div id="bottom-panel">
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search Flight (e.g. IGO...)" autocomplete="off"
+                    autocorrect="off" spellcheck="false" oninput="handleSearch(this.value)">
+                <button onclick="clearSearch()">✖</button>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <div class="info-container">
+            <h3>Live Flight Radar</h3>
+            <p>by Areeb & Meiraba</p>
+        </div>
+    </div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="script.js"></script>
 
 </body>
+
 </html>
