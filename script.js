@@ -86,7 +86,7 @@ function processOpenSkyStates(statesArray) {
             // });
             const rotatedIcon = L.divIcon({
                 className: 'plane-icon',
-                html: `<div style="transform: rotate(${data.heading}deg)"><img src="https://files.catbox.moe/6ns049.png" style="width: 30px; height: 30px;"></div>`,
+                html: `<div style="transform: rotate(${data.heading}deg)"><img src="https://files.catbox.moe/2n9ih5.svg" style="width: 30px; height: 30px;"></div>`,
                 iconSize: [30, 30],
                 iconAnchor: [15, 15] // Anchors the icon center to the coordinates
             });
