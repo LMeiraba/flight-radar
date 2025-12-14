@@ -253,7 +253,7 @@ function renderResults(matches) {
 
             const rotatedIcon = L.divIcon({
                 className: 'plane-icon',
-                html: `<div style="transform: rotate(${flight.heading}deg)"><img src="https://files.catbox.moe/zf20pw.png" style="width: 30px; height: 30px;"></div>`,
+                html: `<div style="transform: rotate(${flight.heading}deg)"><img src="https://files.catbox.moe/2n9ih5.svg" style="width: 30px; height: 30px;"></div>`,
                 iconSize: [30, 30],
                 iconAnchor: [15, 15] // Anchors the icon center to the coordinates
             });
